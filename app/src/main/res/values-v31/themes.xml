@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.PrintDoctor" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#0F1823</item>
+        <item name="android:windowSplashScreenBackground">#0F1823</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+    </style>
+</resources>

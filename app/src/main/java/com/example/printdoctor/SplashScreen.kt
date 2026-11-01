@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +56,7 @@ import kotlinx.coroutines.launch
  *  androidx.compose.ui.res.painterResource)
  */
 @Composable
-fun AppLogo(modifier: Modifier = Modifier, size: Dp = 96.dp) {
+fun AppLogo(modifier: Modifier = Modifier, size: Dp = 250.dp) {
 
     Image(
         painter = painterResource(R.drawable.logo),
@@ -78,8 +79,11 @@ fun SplashScreen(onFinished: () -> Unit) {
     val logoOffset = remember { Animatable(0f) }
     val titleOffset = remember { Animatable(0f) }
 
-    // Cuánto suben el logo y el título (ajústalo a tu gusto)
-    val travelPx = with(LocalDensity.current) { 140.dp.toPx() }
+    // Distancia suficiente para que el logo y el título salgan de la pantalla
+    val screenHeightPx = with(LocalDensity.current) {
+        LocalConfiguration.current.screenHeightDp.dp.toPx()
+    }
+    val travelPx = screenHeightPx * 0.75f
 
     LaunchedEffect(Unit) {
         // Fase 1: todo aparece mientras la barra carga
@@ -104,14 +108,14 @@ fun SplashScreen(onFinished: () -> Unit) {
             launch {
                 logoOffset.animateTo(
                     -travelPx,
-                    tween(durationMillis = 700, easing = FastOutSlowInEasing)
+                    tween(durationMillis = 800, easing = FastOutSlowInEasing)
                 )
             }
             launch {
                 delay(150) // <- el retraso del título
                 titleOffset.animateTo(
                     -travelPx,
-                    tween(durationMillis = 700, easing = FastOutSlowInEasing)
+                    tween(durationMillis = 800, easing = FastOutSlowInEasing)
                 )
             }
         }
@@ -136,26 +140,14 @@ fun SplashScreen(onFinished: () -> Unit) {
                         scaleY = logoScale.value
                         translationY = logoOffset.value
                     }
-                    .drawBehind {
-                        val haloRadius = size.minDimension * 1.25f
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(SoftBlue.copy(alpha = 0.30f), Color.Transparent),
-                                center = center,
-                                radius = haloRadius
-                            ),
-                            radius = haloRadius,
-                            center = center
-                        )
-                    }
             ) {
                 AppLogo()
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "PrintDoctor",
+                text = "Omega Print Doctor",
                 color = Color(0xFFE1E8F0),
-                fontSize = 40.sp,
+                fontSize = 35.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.graphicsLayer {
                     alpha = titleAlpha.value
@@ -164,9 +156,9 @@ fun SplashScreen(onFinished: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Diagnóstico de impresiones 3D fallidas",
+                text = "Una aplicación para diagnosticar impresiones 3D fallidas.",
                 color = MistBlue,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 modifier = Modifier.graphicsLayer {
                     alpha = subtitleAlpha.value * fadeOut.value
                 }
