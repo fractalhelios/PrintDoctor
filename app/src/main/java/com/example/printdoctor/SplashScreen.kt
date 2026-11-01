@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.Image
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -54,20 +56,12 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun AppLogo(modifier: Modifier = Modifier, size: Dp = 96.dp) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(SoftBlue),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "3D",
-            color = NightBlue,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
+
+    Image(
+        painter = painterResource(R.drawable.logo),
+        contentDescription = "Logo de PrintDoctor",
+        modifier = modifier.size(size)
+    )
 }
 
 @Composable
