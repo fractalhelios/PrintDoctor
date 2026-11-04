@@ -45,13 +45,13 @@ private sealed interface UiState {
 fun DiagnosisScreen(
     photoPath: String,
     info: PrintInfo,
+    provider: DiagnosisProvider,
     onBack: () -> Unit,       // volver al formulario
     onNewPhoto: () -> Unit    // volver a la cámara
 ) {
     BackHandler(onBack = onBack)
 
-    // Para cambiar de IA después, solo cambia esta línea (por ejemplo a ClaudeProvider())
-    val provider: DiagnosisProvider = remember { GeminiProvider() }
+
 
     var state by remember { mutableStateOf<UiState>(UiState.Loading) }
     var attempt by remember { mutableStateOf(0) }            // cada cambio relanza el diagnóstico

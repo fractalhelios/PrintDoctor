@@ -33,10 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.printdoctor.ui.theme.BodyFont
 import com.example.printdoctor.ui.theme.MistBlue
 import com.example.printdoctor.ui.theme.NightBlue
 import com.example.printdoctor.ui.theme.NightBlueLight
 import com.example.printdoctor.ui.theme.SoftBlue
+import com.example.printdoctor.ui.theme.TitleFont
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -145,10 +147,12 @@ fun SplashScreen(onFinished: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "Omega Print Doctor",
+                text = "PrintDoctor",
                 color = Color(0xFFE1E8F0),
-                fontSize = 35.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 42.sp,
+                fontFamily = TitleFont,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.sp,
                 modifier = Modifier.graphicsLayer {
                     alpha = titleAlpha.value
                     translationY = titleOffset.value
@@ -156,9 +160,12 @@ fun SplashScreen(onFinished: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Una aplicación para diagnosticar impresiones 3D fallidas.",
+                text = "Diagnostico de errores en impresiones 3D.",
                 color = MistBlue,
-                fontSize = 12.sp,
+                fontSize = 15.5.sp,
+                fontFamily = BodyFont,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 1.sp,
                 modifier = Modifier.graphicsLayer {
                     alpha = subtitleAlpha.value * fadeOut.value
                 }

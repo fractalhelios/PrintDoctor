@@ -51,20 +51,21 @@ data class PrintInfo(
     val notes: String
 )
 
-private val filamentOptions = listOf("PLA", "PETG", "ABS", "TPU", "Otro")
+// private val filamentOptions = listOf("PLA", "PETG", "ABS", "TPU", "Otro")
 
 @Composable
 fun FormScreen(
     photoPath: String,
     previewBitmap: Bitmap? = null,       // la foto ya cargada (evita parpadeos tras la animación)
     initialInfo: PrintInfo? = null,      // datos anteriores, para no perder lo que escribiste
+    defaultFilament: String? = null,
     onBack: () -> Unit,
     onSubmit: (PrintInfo) -> Unit
 ) {
     // El botón "atrás" del teléfono vuelve a la cámara
     BackHandler(onBack = onBack)
 
-    var filament by remember { mutableStateOf(initialInfo?.filament) }
+    var filament by remember { mutableStateOf(initialInfo?.filament ?: defaultFilament) }
     var nozzleTemp by remember { mutableStateOf(initialInfo?.nozzleTemp ?: "") }
     var bedTemp by remember { mutableStateOf(initialInfo?.bedTemp ?: "") }
     var notes by remember { mutableStateOf(initialInfo?.notes ?: "") }
@@ -143,7 +144,7 @@ fun FormScreen(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                filamentOptions.forEach { option ->
+                FilamentOptions.forEach { option ->
                     FilterChip(
                         selected = filament == option,
                         onClick = { filament = option },

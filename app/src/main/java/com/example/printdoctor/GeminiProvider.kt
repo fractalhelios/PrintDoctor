@@ -17,6 +17,8 @@ import java.net.URL
  * Conexión con la API de Gemini usando solo herramientas que ya trae Android
  * (sin librerías extra).
  *
+ * Ahora la clave y los datos de la impresora llegan desde Configuración.
+ *
  * Los nombres de modelo cambian seguido: si algún día da error 404,
  * copia el nombre vigente desde Google AI Studio.
  *  - "gemini-3.5-flash-lite": más solicitudes gratis por día, ideal para desarrollar.
@@ -24,7 +26,8 @@ import java.net.URL
  *    las pruebas de la tesis.
  */
 class GeminiProvider(
-    private val apiKey: String = BuildConfig.GEMINI_API_KEY,
+    private val apiKey: String,
+    private val printer: PrinterProfile,
     private val model: String = "gemini-3.5-flash-lite"
 ) : DiagnosisProvider {
 
@@ -34,7 +37,7 @@ class GeminiProvider(
         extraAnswers: String?
     ): DiagnosisResult = withContext(Dispatchers.IO) {
         require(apiKey.isNotBlank()) {
-            "Falta la clave de Gemini: agrega GEMINI_API_KEY en local.properties"
+            "Falta la clave de Gemini: agrégala en Configuración (o en local.properties)"
         }
         val imageBase64 = jpegBase64(photoPath)
         val requestBody = buildRequestBody(imageBase64, info, extraAnswers)
@@ -49,8 +52,14 @@ class GeminiProvider(
         info: PrintInfo,
         extraAnswers: String?
     ): String {
+        val printerText = if (printer.model.isBlank()) {
+            "una impresora FDM (modelo no especificado)"
+        } else {
+            printer.model
+        }
+
         val systemPrompt = """
-            Eres un experto en impresión 3D FDM. La impresora del usuario es una Creality Ender-3 S1 Pro.
+            Eres un experto en impresión 3D FDM. La impresora del usuario es: $printerText, con boquilla de ${printer.nozzleMm} mm.
             Recibirás la foto de una impresión que falló y algunos datos que escribió el usuario.
             Identifica la falla más probable (por ejemplo: stringing, warping, mala adhesión de la primera capa,
             subextrusión, desplazamiento de capas, etc.). Si la foto no muestra una impresión 3D o no se ve

@@ -80,7 +80,7 @@ fun PrintDoctorTheme(
     // la app mantiene siempre su propia paleta azul.
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = Typography,
+        typography = AppTypography,
         shapes = AppShapes,
         content = content
     )

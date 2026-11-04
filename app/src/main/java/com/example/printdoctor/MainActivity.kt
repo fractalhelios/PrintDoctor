@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +37,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            PrintDoctorTheme {
+            // Opciones guardadas de Configuración (tema, clave, datos de la impresora)
+            val settings = remember { AppSettings(applicationContext) }
+
+            // Tema según lo que elijas en Configuración
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (settings.themeMode) {
+                ThemeMode.System -> systemDark
+                ThemeMode.Light -> false
+                ThemeMode.Dark -> true
+            }
+
+            PrintDoctorTheme(darkTheme = darkTheme) {
                 var screen by remember { mutableStateOf(Screen.Home) }
                 var splashPhase by remember { mutableStateOf(SplashPhase.Showing) }
                 val iris = remember { Animatable(0f) }
@@ -141,6 +153,7 @@ class MainActivity : ComponentActivity() {
                                                 photoPath = path,
                                                 previewBitmap = photoBitmap,
                                                 initialInfo = printInfo,
+                                                defaultFilament = settings.usualFilament,
                                                 onBack = { screen = Screen.Home },
                                                 onSubmit = { info ->
                                                     printInfo = info
@@ -157,6 +170,12 @@ class MainActivity : ComponentActivity() {
                                             DiagnosisScreen(
                                                 photoPath = path,
                                                 info = info,
+                                                // Para cambiar de IA después, cambia solo esta línea
+                                                // (por ejemplo a ClaudeProvider(...))
+                                                provider = GeminiProvider(
+                                                    apiKey = settings.effectiveApiKey(),
+                                                    printer = settings.printerProfile()
+                                                ),
                                                 onBack = { screen = Screen.Form },
                                                 onNewPhoto = { screen = Screen.Home }
                                             )
@@ -164,6 +183,7 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     Screen.Settings -> SettingsScreen(
+                                        settings = settings,
                                         onBack = { screen = Screen.Home }
                                     )
                                 }
