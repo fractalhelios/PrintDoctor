@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
 fun AppLogo(modifier: Modifier = Modifier, size: Dp = 250.dp) {
 
     Image(
-        painter = painterResource(R.drawable.logo),
+        painter = painterResource(R.drawable.logo_dog_full),
         contentDescription = "Logo de PrintDoctor",
         modifier = modifier.size(size)
     )
@@ -150,8 +150,8 @@ fun SplashScreen(onFinished: () -> Unit) {
                 text = "PrintDoctor",
                 color = Color(0xFFE1E8F0),
                 fontSize = 42.sp,
-                fontFamily = TitleFont,
-                fontWeight = FontWeight.SemiBold,
+                fontFamily = TitleFont,              // ahora Raleway Bold (ver AppFonts.kt)
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 modifier = Modifier.graphicsLayer {
                     alpha = titleAlpha.value
@@ -163,8 +163,8 @@ fun SplashScreen(onFinished: () -> Unit) {
                 text = "Diagnostico de errores en impresiones 3D.",
                 color = MistBlue,
                 fontSize = 15.5.sp,
-                fontFamily = BodyFont,
-                fontWeight = FontWeight.Light,
+                fontFamily = BodyFont,               // BodyFont incluye raleway_bold
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 modifier = Modifier.graphicsLayer {
                     alpha = subtitleAlpha.value * fadeOut.value

@@ -9,16 +9,18 @@ import com.example.printdoctor.R
 // ---------------------------------------------------------------------------
 // Los archivos .ttf van en app/src/main/res/font/ con estos nombres exactos
 // (minúsculas, con guiones bajos):
-//   playfair_display_semibold.ttf
 //   raleway_light.ttf
 //   raleway_semibold.ttf
-//   raleway_bold.ttf            <- nuevo: para el texto más grueso de los botones
+//   raleway_bold.ttf
 // Si quieres probar otras tipografías, cambia aquí los nombres de R.font.xxx.
+//
+// Ya no se usa Playfair Display: puedes borrar playfair_display_semibold.ttf de
+// res/font (si lo dejas no pasa nada, solo ocupa espacio en el APK).
 // ---------------------------------------------------------------------------
 
-/** Para títulos elegantes (por ejemplo, el de la presentación). */
+/** Para títulos (por ejemplo, el de la presentación): ahora Raleway Bold. */
 val TitleFont = FontFamily(
-    Font(R.font.playfair_display_semibold, FontWeight.SemiBold)
+    Font(R.font.raleway_bold, FontWeight.Bold)
 )
 
 /** Para subtítulos, botones y etiquetas. */

@@ -5,13 +5,11 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -23,7 +21,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -40,8 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -200,33 +197,37 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
-            AppOutlinedButton(onClick = onBack) {
-                Text("Volver")
-            }
 
-            // ---------------- Huevo de pascua ----------------
-            Spacer(modifier = Modifier.height(36.dp))
-            Box(
+            // "Volver" a la izquierda y, en la misma fila, el huevo de pascua a la derecha
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                AppOutlinedButton(onClick = onBack) {
+                    Text("Volver")
+                }
                 SecretDogButton(onClick = onOpenCredits)
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
 /**
  * Icono pequeño y discreto que abre los créditos.
- * Usa res/drawable/chihuahua_icon (por ahora un dibujo de relleno; ver las instrucciones
- * dentro de chihuahua_icon.xml para poner la foto de tu perrito).
+ * Usa un recorte tipo sticker, así que se muestra con su propia silueta (sin círculo ni
+ * borde dibujado):
+ *  - res/drawable-nodpi/chihuahua_icon.png        -> contorno blanco (tema oscuro)
+ *  - res/drawable-nodpi/chihuahua_icon_light.png  -> contorno negro (tema claro)
  */
 @Composable
 private fun SecretDogButton(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
+
+    // Con fondo claro el contorno blanco no se vería: se usa la versión con contorno negro
+    val isLightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
 
     // Al presionarlo se encoge y regresa con un rebotito
     val scale by animateFloatAsState(
@@ -239,22 +240,17 @@ private fun SecretDogButton(onClick: () -> Unit) {
     )
 
     Image(
-        painter = painterResource(R.drawable.chihuahua_icon),
+        painter = painterResource(
+            if (isLightTheme) R.drawable.chihuahua_icon_light else R.drawable.chihuahua_icon
+        ),
         contentDescription = "Créditos",
-        contentScale = ContentScale.Crop,
+        contentScale = ContentScale.Fit,
         modifier = Modifier
-            .size(40.dp)
+            .size(44.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                alpha = 0.85f
             }
-            .clip(CircleShape)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                shape = CircleShape
-            )
             .clickable(interactionSource = interactionSource, indication = null) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()
