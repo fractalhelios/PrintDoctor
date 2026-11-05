@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DIBUJO DE RELLENO (una silueta).
+  Para usar tu foto:
+    1) Recórtala cuadrada y redúcela a unos 800 x 800 px.
+    2) BORRA este archivo (developer_photo.xml).
+    3) Agrega tu imagen en esta misma carpeta con el nombre  developer_photo.png
+       (mismo nombre, otra extensión). No hay que cambiar nada de código.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+
+    <!-- Fondo -->
+    <path
+        android:fillColor="#FF1B2C42"
+        android:pathData="M0,0h160v160h-160z" />
+
+    <!-- Cabeza -->
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M80,62m-26,0a26,26 0,1 1,52 0a26,26 0,1 1,-52 0z" />
+
+    <!-- Hombros -->
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M24,160C24,126 48,106 80,106C112,106 136,126 136,160z" />
+</vector>

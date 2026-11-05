@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DIBUJO DE RELLENO (una huella).
+  Para usar la foto de tu chihuahua:
+    1) Recórtala cuadrada, con la carita centrada, y redúcela a unos 512 x 512 px.
+    2) BORRA este archivo (chihuahua_icon.xml).
+    3) Agrega tu imagen en esta misma carpeta con el nombre  chihuahua_icon.png
+       (mismo nombre, otra extensión). No hay que cambiar nada de código.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fondo circular -->
+    <path
+        android:fillColor="#FF1B2C42"
+        android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0z" />
+
+    <!-- Cuatro deditos -->
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M31,52m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0z" />
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M44,37m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0z" />
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M64,37m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0z" />
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M77,52m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0z" />
+
+    <!-- Almohadilla principal -->
+    <path
+        android:fillColor="#FF8FB4E3"
+        android:pathData="M54,71m-19,0a19,15 0,1 1,38 0a19,15 0,1 1,-38 0z" />
+</vector>

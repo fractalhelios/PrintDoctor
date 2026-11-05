@@ -10,6 +10,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -27,8 +28,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.util.lerp
 import com.example.printdoctor.ui.theme.PrintDoctorTheme
 
-// Las pantallas de la app. El ORDEN importa: define hacia dónde se deslizan las transiciones.
-enum class Screen { Home, Form, Diagnosis, Settings }
+// Las pantallas de la app. El ORDEN importa: define hacia dónde se deslizan las transiciones
+// (ir a una pantalla que está más a la derecha en esta lista = deslizar hacia adelante).
+enum class Screen { Home, Form, Diagnosis, Settings, Credits, History, HistoryDetail }
 
 // Etapas de la presentación: mostrándose -> abriéndose el "iris" -> terminada
 private enum class SplashPhase { Showing, Revealing, Done }
@@ -39,6 +41,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Opciones guardadas de Configuración (tema, clave, datos de la impresora)
             val settings = remember { AppSettings(applicationContext) }
+            // Diagnósticos guardados (se leen del archivo una sola vez al abrir la app)
+            val history = remember { HistoryStore(applicationContext) }
 
             // Tema según lo que elijas en Configuración
             val systemDark = isSystemInDarkTheme()
@@ -60,6 +64,10 @@ class MainActivity : ComponentActivity() {
                 var printInfo by remember { mutableStateOf<PrintInfo?>(null) }
                 // Animación de la foto volando hacia el formulario (null = no hay animación)
                 var flight by remember { mutableStateOf<PhotoFlight?>(null) }
+                // El diagnóstico del historial que se está viendo. Guardamos una copia (y no solo
+                // un identificador) para que, al borrarlo, la pantalla no se quede en blanco
+                // mientras se desliza hacia afuera.
+                var detailEntry by remember { mutableStateOf<HistoryEntry?>(null) }
 
                 // Cuando la presentación termina, el iris se abre desde el centro
                 LaunchedEffect(splashPhase) {
@@ -101,10 +109,24 @@ class MainActivity : ComponentActivity() {
                                     val toForm = initialState == Screen.Home &&
                                         targetState == Screen.Form
                                     val forward = targetState.ordinal > initialState.ordinal
+                                    val credits = initialState == Screen.Credits ||
+                                        targetState == Screen.Credits
                                     when {
                                         // Home -> Form: solo fundido, porque la foto aterriza
                                         // en un punto fijo de la pantalla
                                         toForm -> fadeIn(tween(250)) togetherWith fadeOut(tween(250))
+
+                                        // Créditos: aparecen con un fundido y un zoom suave,
+                                        // como un detalle escondido que se revela
+                                        credits -> (
+                                            fadeIn(tween(450)) + scaleIn(
+                                                animationSpec = tween(
+                                                    450,
+                                                    easing = FastOutSlowInEasing
+                                                ),
+                                                initialScale = 0.92f
+                                            )
+                                            ) togetherWith fadeOut(tween(250))
 
                                         // Avanzar: la pantalla nueva entra desde la derecha
                                         forward -> (
@@ -134,6 +156,7 @@ class MainActivity : ComponentActivity() {
                                 when (current) {
                                     Screen.Home -> HomeScreen(
                                         onOpenSettings = { screen = Screen.Settings },
+                                        onOpenHistory = { screen = Screen.History },
                                         onPhotoCaptured = { path, bitmap, from, to ->
                                             photoPath = path
                                             photoBitmap = bitmap
@@ -176,6 +199,11 @@ class MainActivity : ComponentActivity() {
                                                     apiKey = settings.effectiveApiKey(),
                                                     printer = settings.printerProfile()
                                                 ),
+                                                // Cada resultado se guarda en el historial
+                                                // (si la foto ya estaba, se actualiza)
+                                                onDiagnosed = { result ->
+                                                    history.save(path, info, result)
+                                                },
                                                 onBack = { screen = Screen.Form },
                                                 onNewPhoto = { screen = Screen.Home }
                                             )
@@ -184,8 +212,42 @@ class MainActivity : ComponentActivity() {
 
                                     Screen.Settings -> SettingsScreen(
                                         settings = settings,
+                                        onOpenCredits = { screen = Screen.Credits },
                                         onBack = { screen = Screen.Home }
                                     )
+
+                                    Screen.Credits -> CreditsScreen(
+                                        onBack = { screen = Screen.Settings }
+                                    )
+
+                                    Screen.History -> HistoryScreen(
+                                        entries = history.entries,
+                                        onOpen = { entry ->
+                                            detailEntry = entry
+                                            screen = Screen.HistoryDetail
+                                        },
+                                        onBack = { screen = Screen.Home }
+                                    )
+
+                                    Screen.HistoryDetail -> {
+                                        val entry = detailEntry
+                                        if (entry != null) {
+                                            HistoryDetailScreen(
+                                                entry = entry,
+                                                onBack = { screen = Screen.History },
+                                                onDelete = {
+                                                    history.delete(entry)
+                                                    // Si era la foto "activa", la soltamos
+                                                    if (photoPath == entry.photoPath) {
+                                                        photoPath = null
+                                                        photoBitmap = null
+                                                        printInfo = null
+                                                    }
+                                                    screen = Screen.History
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

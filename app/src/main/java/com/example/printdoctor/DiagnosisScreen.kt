@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,24 +46,30 @@ private sealed interface UiState {
 fun DiagnosisScreen(
     photoPath: String,
     info: PrintInfo,
-    provider: DiagnosisProvider,
-    onBack: () -> Unit,       // volver al formulario
-    onNewPhoto: () -> Unit    // volver a la cámara
+    provider: DiagnosisProvider,          // la IA que hace el diagnóstico (Gemini hoy, Claude mañana)
+    onDiagnosed: (DiagnosisResult) -> Unit = {},   // se llama cada vez que llega un resultado
+    onBack: () -> Unit,                   // volver al formulario
+    onNewPhoto: () -> Unit                // volver a la cámara
 ) {
     BackHandler(onBack = onBack)
-
-
 
     var state by remember { mutableStateOf<UiState>(UiState.Loading) }
     var attempt by remember { mutableStateOf(0) }            // cada cambio relanza el diagnóstico
     var extraAnswers by remember { mutableStateOf<String?>(null) }
     var answerText by remember { mutableStateOf("") }
 
+    // El efecto de abajo puede tardar varios segundos en terminar.
+    // rememberUpdatedState hace que, cuando termine, llame a la versión MÁS RECIENTE
+    // de onDiagnosed y no a una copia vieja que quedó "congelada" al empezar.
+    val currentOnDiagnosed by rememberUpdatedState(onDiagnosed)
+
     // Se ejecuta al abrir la pantalla y cada vez que "attempt" cambia
     LaunchedEffect(attempt) {
         state = UiState.Loading
         state = try {
-            UiState.Success(provider.diagnose(photoPath, info, extraAnswers))
+            val result = provider.diagnose(photoPath, info, extraAnswers)
+            currentOnDiagnosed(result)      // aquí MainActivity lo guarda en el historial
+            UiState.Success(result)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -127,28 +134,7 @@ fun DiagnosisScreen(
                         val result = current.result
 
                         Column {
-                            Text(result.diagnosis, style = MaterialTheme.typography.titleLarge)
-                            if (result.confidence.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Confianza: ${result.confidence}")
-                            }
-                            if (result.explanation.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(result.explanation)
-                            }
-
-                            if (result.advice.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(20.dp))
-                                Text(
-                                    "Qué hacer la próxima vez",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                result.advice.forEach { tip ->
-                                    Text("• $tip")
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                }
-                            }
+                            DiagnosisResultBody(result)
 
                             // Si el modelo necesita más datos, hace preguntas
                             if (result.followUpQuestions.isNotEmpty()) {
@@ -187,7 +173,14 @@ fun DiagnosisScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "Este diagnóstico quedó guardado en tu historial.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -208,6 +201,38 @@ fun DiagnosisScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * La parte del resultado que no cambia: diagnóstico, confianza, explicación y consejos.
+ * La usan esta pantalla y la de detalle del historial, para que se vean idénticas.
+ */
+@Composable
+fun DiagnosisResultBody(result: DiagnosisResult) {
+    Column {
+        Text(result.diagnosis, style = MaterialTheme.typography.titleLarge)
+        if (result.confidence.isNotBlank()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("Confianza: ${result.confidence}")
+        }
+        if (result.explanation.isNotBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(result.explanation)
+        }
+
+        if (result.advice.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                "Qué hacer la próxima vez",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            result.advice.forEach { tip ->
+                Text("• $tip")
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }

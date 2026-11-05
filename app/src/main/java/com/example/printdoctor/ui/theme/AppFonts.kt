@@ -12,6 +12,7 @@ import com.example.printdoctor.R
 //   playfair_display_semibold.ttf
 //   raleway_light.ttf
 //   raleway_semibold.ttf
+//   raleway_bold.ttf            <- nuevo: para el texto más grueso de los botones
 // Si quieres probar otras tipografías, cambia aquí los nombres de R.font.xxx.
 // ---------------------------------------------------------------------------
 
@@ -23,12 +24,13 @@ val TitleFont = FontFamily(
 /** Para subtítulos, botones y etiquetas. */
 val BodyFont = FontFamily(
     Font(R.font.raleway_light, FontWeight.Light),
-    Font(R.font.raleway_semibold, FontWeight.SemiBold)
+    Font(R.font.raleway_semibold, FontWeight.SemiBold),
+    Font(R.font.raleway_bold, FontWeight.Bold)
 )
 
 /**
  * Igual que la tipografía original, pero el estilo "labelLarge"
- * (el que usan los botones y los chips) ahora usa Raleway SemiBold
+ * (el que usan los chips y, de base, los botones) ahora usa Raleway SemiBold
  * con un poco de espacio entre letras.
  */
 val AppTypography = Typography.copy(

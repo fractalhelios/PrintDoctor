@@ -1,8 +1,17 @@
 package com.example.printdoctor
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -12,7 +21,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -27,14 +38,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
+fun SettingsScreen(
+    settings: AppSettings,
+    onOpenCredits: () -> Unit,   // el huevo de pascua de abajo lleva a los créditos
+    onBack: () -> Unit
+) {
     // El botón "atrás" del teléfono también regresa a la pantalla principal
     BackHandler(onBack = onBack)
 
@@ -181,8 +203,63 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
             AppOutlinedButton(onClick = onBack) {
                 Text("Volver")
             }
+
+            // ---------------- Huevo de pascua ----------------
+            Spacer(modifier = Modifier.height(36.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                SecretDogButton(onClick = onOpenCredits)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
+}
+
+/**
+ * Icono pequeño y discreto que abre los créditos.
+ * Usa res/drawable/chihuahua_icon (por ahora un dibujo de relleno; ver las instrucciones
+ * dentro de chihuahua_icon.xml para poner la foto de tu perrito).
+ */
+@Composable
+private fun SecretDogButton(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val haptic = LocalHapticFeedback.current
+
+    // Al presionarlo se encoge y regresa con un rebotito
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.8f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "dogPress"
+    )
+
+    Image(
+        painter = painterResource(R.drawable.chihuahua_icon),
+        contentDescription = "Créditos",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(40.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                alpha = 0.85f
+            }
+            .clip(CircleShape)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                shape = CircleShape
+            )
+            .clickable(interactionSource = interactionSource, indication = null) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }
+    )
 }
 
 // Título de cada sección

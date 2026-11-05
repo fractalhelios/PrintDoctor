@@ -65,6 +65,7 @@ import java.io.File
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit,
+    onOpenHistory: () -> Unit,
     // Se llama cuando la foto ya quedó guardada. Entrega la ruta, la imagen ya cargada y
     // los rectángulos (en píxeles) de origen y destino para la animación de vuelo.
     onPhotoCaptured: (path: String, bitmap: Bitmap?, from: Rect, to: Rect) -> Unit
@@ -145,10 +146,10 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botones de abajo (aquí puedes agregar más después)
-            Row(
+            // Botones de abajo: "Tomar foto" arriba y, debajo, los dos secundarios
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 AppButton(
                     onClick = {
@@ -180,15 +181,26 @@ fun HomeScreen(
                         }
                     },
                     enabled = hasPermission && !capturing,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Tomar foto")
                 }
-                AppOutlinedButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.weight(1f)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Configuración")
+                    AppOutlinedButton(
+                        onClick = onOpenHistory,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Historial")
+                    }
+                    AppOutlinedButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Configuración")
+                    }
                 }
             }
         }

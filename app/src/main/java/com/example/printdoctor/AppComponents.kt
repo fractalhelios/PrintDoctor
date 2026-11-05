@@ -9,11 +9,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -24,7 +27,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // ---- Colores del botón principal (puedes ajustarlos a tu gusto) ----
 // Un azul más profundo que el fondo de la app, con degradado sutil y borde fino
@@ -34,7 +40,17 @@ private val ButtonBlueBottom = Color(0xFF2A5183)
 private val ButtonBorder = Color(0xFF6C9AD0).copy(alpha = 0.55f)
 private val ButtonContent = Color(0xFFEAF2FB)
 
+// ---- Texto de los botones: tamaño y grosor (la fuente la hereda de AppTypography) ----
+private val ButtonTextStyle = TextStyle(
+    fontSize = 16.6.sp,
+    fontWeight = FontWeight.Bold
+)
+
 private val ButtonPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+
+// Altura mínima del botón. Es la misma que Android usa para el área táctil;
+// al fijarla aquí, el degradado y el borde miden exactamente lo mismo.
+private val ButtonMinHeight = 48.dp
 
 // Escala del botón: se encoge un poco al presionarlo y regresa con un muelle suave
 @Composable
@@ -51,8 +67,8 @@ private fun rememberPressScale(interactionSource: MutableInteractionSource): Sta
 }
 
 /**
- * Botón principal: degradado azul, borde fino, tipografía elegante
- * (la toma de AppTypography), animación al presionar y vibración leve.
+ * Botón principal: degradado azul, borde fino, tipografía elegante,
+ * animación al presionar y vibración leve.
  */
 @Composable
 fun AppButton(
@@ -79,6 +95,7 @@ fun AppButton(
             onClick()
         },
         modifier = modifier
+            .heightIn(min = ButtonMinHeight)   // evita que el degradado sea más alto que el borde
             .graphicsLayer {
                 scaleX = scale.value
                 scaleY = scale.value
@@ -96,7 +113,15 @@ fun AppButton(
         elevation = null,
         contentPadding = ButtonPadding,
         interactionSource = interactionSource,
-        content = content
+        content = {
+            // Aplica el tamaño y grosor de ButtonTextStyle al texto del botón
+            val rowScope = this
+            CompositionLocalProvider(
+                LocalTextStyle provides LocalTextStyle.current.merge(ButtonTextStyle)
+            ) {
+                rowScope.content()
+            }
+        }
     )
 }
 
@@ -121,10 +146,12 @@ fun AppOutlinedButton(
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             onClick()
         },
-        modifier = modifier.graphicsLayer {
-            scaleX = scale.value
-            scaleY = scale.value
-        },
+        modifier = modifier
+            .heightIn(min = ButtonMinHeight)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            },
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = primary),
@@ -134,6 +161,13 @@ fun AppOutlinedButton(
         ),
         contentPadding = ButtonPadding,
         interactionSource = interactionSource,
-        content = content
+        content = {
+            val rowScope = this
+            CompositionLocalProvider(
+                LocalTextStyle provides LocalTextStyle.current.merge(ButtonTextStyle)
+            ) {
+                rowScope.content()
+            }
+        }
     )
 }
