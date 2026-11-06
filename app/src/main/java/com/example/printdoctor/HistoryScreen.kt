@@ -2,7 +2,10 @@ package com.example.printdoctor
 
 import android.graphics.Bitmap
 import android.util.LruCache
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -30,7 +34,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,13 +45,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,6 +80,32 @@ fun HistoryScreen(
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
+
+    // Exportar a CSV: Android abre su selector de archivos para elegir dónde guardarlo
+    // (no hace falta ningún permiso extra).
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            // El carácter \uFEFF (BOM) hace que Excel lea bien los acentos
+                            out.write(("\uFEFF" + buildHistoryCsv(entries)).toByteArray(Charsets.UTF_8))
+                        } != null
+                    }.getOrDefault(false)
+                }
+                Toast.makeText(
+                    context,
+                    if (ok) "Historial exportado" else "No se pudo guardar el archivo",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -133,11 +169,27 @@ fun HistoryScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            if (entries.isNotEmpty()) {
+                AppOutlinedButton(
+                    onClick = { exportLauncher.launch("historial_printdoctor.csv") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Exportar historial (CSV)")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             AppOutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                 Text("Volver")
             }
         }
     }
+}
+
+// Colores de la insignia "¿acertó?" (se ven bien en tema claro y oscuro)
+private fun verdictColor(verdict: Verdict): Color = when (verdict) {
+    Verdict.Yes -> Color(0xFF3FA66B)
+    Verdict.Partial -> Color(0xFFD9A441)
+    Verdict.No -> Color(0xFFD9605B)
 }
 
 // Una miniatura con su fecha y el título del diagnóstico
@@ -185,6 +237,14 @@ private fun HistoryCard(entry: HistoryEntry, onClick: () -> Unit) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            // Siempre hay una línea aquí (aunque diga "Sin calificar") para que todas midan igual
+            Text(
+                text = entry.verdict?.badge ?: "Sin calificar",
+                style = MaterialTheme.typography.bodySmall,
+                color = entry.verdict?.let { verdictColor(it) }
+                    ?: MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -197,6 +257,7 @@ private fun HistoryCard(entry: HistoryEntry, onClick: () -> Unit) {
 fun HistoryDetailScreen(
     entry: HistoryEntry,
     onBack: () -> Unit,
+    onFeedback: (Verdict?, String) -> Unit,    // guarda "¿acertó?" y la causa real
     onDelete: () -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -211,6 +272,7 @@ fun HistoryDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
@@ -238,6 +300,9 @@ fun HistoryDetailScreen(
             PrintInfoSummary(entry.info)
 
             DiagnosisResultBody(entry.result)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            FeedbackSection(entry = entry, onSave = onFeedback)
 
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -275,6 +340,61 @@ fun HistoryDetailScreen(
                 TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
             }
         )
+    }
+}
+
+// "¿Acertó el diagnóstico?": tres opciones y un campo para la causa real
+@Composable
+private fun FeedbackSection(entry: HistoryEntry, onSave: (Verdict?, String) -> Unit) {
+    // Lo que se está editando (empieza igual a lo guardado)
+    var verdict by remember(entry.photoPath) { mutableStateOf(entry.verdict) }
+    var cause by remember(entry.photoPath) { mutableStateOf(entry.actualCause) }
+
+    val trimmed = cause.trim()
+    val dirty = verdict != entry.verdict || trimmed != entry.actualCause
+    val hasSaved = entry.verdict != null || entry.actualCause.isNotBlank()
+
+    Text("¿Acertó el diagnóstico?", style = MaterialTheme.typography.titleMedium)
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "Cuando sepas qué pasó en realidad, anótalo aquí. Sirve para llevar la cuenta de " +
+            "qué tan bien acierta la app, y se incluye al exportar el historial.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Verdict.entries.forEach { option ->
+            FilterChip(
+                selected = verdict == option,
+                // Tocar de nuevo el seleccionado lo quita
+                onClick = { verdict = if (verdict == option) null else option },
+                label = { Text(option.label) },
+                shape = MaterialTheme.shapes.small
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    OutlinedTextField(
+        value = cause,
+        onValueChange = { cause = it },
+        label = { Text("Causa real (opcional)") },
+        placeholder = { Text("Ej.: la cama estaba mal nivelada") },
+        minLines = 2,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        AppButton(onClick = { onSave(verdict, trimmed) }, enabled = dirty) {
+            Text("Guardar")
+        }
+        if (!dirty && hasSaved) {
+            Text("✓ Guardado", color = MaterialTheme.colorScheme.primary)
+        }
     }
 }
 

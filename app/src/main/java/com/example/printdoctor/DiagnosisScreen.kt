@@ -34,12 +34,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-// Los tres estados posibles de la pantalla
+// Los cuatro estados posibles de la pantalla
 private sealed interface UiState {
     object Loading : UiState
+
+    /** La foto se ve muy oscura o borrosa: se avisa ANTES de gastar una consulta a la IA. */
+    data class PhotoWarning(val problems: List<String>) : UiState
+
     data class Success(val result: DiagnosisResult) : UiState
-    data class Error(val message: String) : UiState
+
+    /** Un error ya traducido a español (ver DiagnosisError.kt). */
+    data class Error(val error: DiagnosisException) : UiState
 }
 
 @Composable
@@ -49,7 +57,10 @@ fun DiagnosisScreen(
     provider: DiagnosisProvider,          // la IA que hace el diagnóstico (Gemini hoy, Claude mañana)
     onDiagnosed: (DiagnosisResult) -> Unit = {},   // se llama cada vez que llega un resultado
     onBack: () -> Unit,                   // volver al formulario
-    onNewPhoto: () -> Unit                // volver a la cámara
+    onNewPhoto: () -> Unit,               // volver a la cámara
+    photoWarningAccepted: Boolean = false,         // ¿ya se dijo "usar de todos modos" con esta foto?
+    onPhotoWarningAccepted: () -> Unit = {},
+    onOpenKeyGuide: () -> Unit = {}       // abre la guía para conseguir/arreglar la clave
 ) {
     BackHandler(onBack = onBack)
 
@@ -57,6 +68,8 @@ fun DiagnosisScreen(
     var attempt by remember { mutableStateOf(0) }            // cada cambio relanza el diagnóstico
     var extraAnswers by remember { mutableStateOf<String?>(null) }
     var answerText by remember { mutableStateOf("") }
+    // La revisión de la foto se hace una sola vez (o se salta si ya se aceptó el aviso)
+    var photoChecked by remember { mutableStateOf(photoWarningAccepted) }
 
     // El efecto de abajo puede tardar varios segundos en terminar.
     // rememberUpdatedState hace que, cuando termine, llame a la versión MÁS RECIENTE
@@ -66,6 +79,20 @@ fun DiagnosisScreen(
     // Se ejecuta al abrir la pantalla y cada vez que "attempt" cambia
     LaunchedEffect(attempt) {
         state = UiState.Loading
+
+        // 1) Revisión rápida de la foto (en segundo plano, toma una fracción de segundo)
+        if (!photoChecked) {
+            val quality = withContext(Dispatchers.IO) {
+                runCatching { analyzePhotoQuality(photoPath) }.getOrNull()
+            }
+            if (quality != null && quality.problems.isNotEmpty()) {
+                state = UiState.PhotoWarning(quality.problems)
+                return@LaunchedEffect       // espera a que el usuario decida
+            }
+            photoChecked = true
+        }
+
+        // 2) El diagnóstico en sí
         state = try {
             val result = provider.diagnose(photoPath, info, extraAnswers)
             currentOnDiagnosed(result)      // aquí MainActivity lo guarda en el historial
@@ -73,7 +100,7 @@ fun DiagnosisScreen(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            UiState.Error(e.message ?: "Error desconocido")
+            UiState.Error(diagnosisErrorFromException(e))
         }
     }
 
@@ -92,7 +119,7 @@ fun DiagnosisScreen(
             Text(text = "Diagnóstico", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Fundido suave entre "analizando", "error" y "resultado"
+            // Fundido suave entre "analizando", "aviso", "error" y "resultado"
             AnimatedContent(
                 targetState = state,
                 transitionSpec = {
@@ -114,18 +141,81 @@ fun DiagnosisScreen(
                         }
                     }
 
-                    is UiState.Error -> {
+                    is UiState.PhotoWarning -> {
                         Column {
                             Text(
-                                text = "No se pudo completar el diagnóstico:",
+                                text = "Esta foto podría no servir bien",
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(current.message, color = MaterialTheme.colorScheme.error)
+                            current.problems.forEach { problem ->
+                                Text("• $problem")
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Con una foto así el diagnóstico puede salir menos preciso. " +
+                                    "Si puedes, toma otra con buena luz y bien enfocada.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(modifier = Modifier.height(20.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                AppOutlinedButton(onClick = onBack) { Text("Volver") }
-                                AppButton(onClick = { attempt++ }) { Text("Reintentar") }
+                            // Botones uno sobre otro para que el texto nunca se parta en dos líneas
+                            AppButton(onClick = onNewPhoto, modifier = Modifier.fillMaxWidth()) {
+                                Text("Tomar otra")
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            AppOutlinedButton(
+                                onClick = {
+                                    photoChecked = true
+                                    onPhotoWarningAccepted()
+                                    attempt++
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Usar de todos modos")
+                            }
+                        }
+                    }
+
+                    is UiState.Error -> {
+                        val error = current.error
+                        Column {
+                            Text(
+                                text = "No se pudo completar el diagnóstico",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(error.userMessage, color = MaterialTheme.colorScheme.error)
+                            // El detalle técnico va chiquito, por si hay que depurar
+                            error.technicalDetail?.let { detail ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = detail,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(20.dp))
+                            if (error.needsKeyFix) {
+                                // Reintentar no serviría de nada con una clave mala o ausente
+                                AppButton(
+                                    onClick = onOpenKeyGuide,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Configurar mi clave")
+                                }
+                            } else {
+                                AppButton(
+                                    onClick = { attempt++ },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Reintentar")
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            AppOutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                                Text("Volver")
                             }
                         }
                     }
@@ -175,7 +265,8 @@ fun DiagnosisScreen(
 
                             Spacer(modifier = Modifier.height(20.dp))
                             Text(
-                                text = "Este diagnóstico quedó guardado en tu historial.",
+                                text = "Este diagnóstico quedó guardado en tu historial. " +
+                                    "Ahí puedes marcar si acertó.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

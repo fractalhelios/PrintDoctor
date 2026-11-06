@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     settings: AppSettings,
     onOpenCredits: () -> Unit,   // el huevo de pascua de abajo lleva a los créditos
+    onOpenKeyGuide: () -> Unit,  // pantalla guiada para conseguir la clave de Gemini
     onBack: () -> Unit
 ) {
     // El botón "atrás" del teléfono también regresa a la pantalla principal
@@ -99,12 +100,6 @@ fun SettingsScreen(
 
             // ---------------- Mi impresora ----------------
             SectionTitle("Mi impresora")
-            Text(
-                text = "Estos datos se envían a la IA para que el diagnóstico sea más preciso.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = settings.printerModel,
                 onValueChange = { settings.updatePrinterModel(it) },
@@ -134,7 +129,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Filamento que usas casi siempre",
+                text = "Filamento",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -151,20 +146,13 @@ fun SettingsScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Aparecerá ya seleccionado en el formulario.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ---------------- Inteligencia artificial ----------------
-            SectionTitle("Inteligencia artificial")
+            // ---------------- Gemini AI ----------------
+            SectionTitle("Gemini AI")
             OutlinedTextField(
                 value = settings.apiKey,
                 onValueChange = { settings.updateApiKey(it) },
-                label = { Text("Clave de API de Gemini") },
                 singleLine = true,
                 visualTransformation = if (showKey) {
                     VisualTransformation.None
@@ -175,26 +163,40 @@ fun SettingsScreen(
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { showKey = !showKey }) {
-                    Text(if (showKey) "Ocultar" else "Mostrar")
+            // "Probar clave" va en la misma fila que "Mostrar" y "Borrar clave".
+            // Prueba la clave que realmente se va a usar (la guardada o la de local.properties).
+            ApiKeyTester(
+                apiKey = settings.effectiveApiKey(),
+                extraButtons = {
+                    TextButton(onClick = { showKey = !showKey }) {
+                        Text(if (showKey) "Ocultar" else "Mostrar")
+                    }
+                    TextButton(
+                        onClick = { settings.updateApiKey("") },
+                        enabled = settings.apiKey.isNotEmpty()
+                    ) {
+                        Text("Borrar clave")
+                    }
                 }
-                TextButton(
-                    onClick = { settings.updateApiKey("") },
-                    enabled = settings.apiKey.isNotEmpty()
-                ) {
-                    Text("Borrar clave")
-                }
-            }
-            Text(
-                text = if (settings.apiKey.isBlank()) {
-                    "Sin clave guardada en la app: se usará la de local.properties, si existe."
-                } else {
-                    "Clave guardada solo en este teléfono."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // Solo se avisa cuando hay algo que decir (si se usa la de local.properties, nada)
+            val keyHint = when {
+                settings.apiKey.isNotBlank() -> "Clave guardada solo en este teléfono."
+                settings.effectiveApiKey().isBlank() ->
+                    "Todavía no hay clave: pégala arriba o sigue la guía de abajo."
+                else -> null
+            }
+            if (keyHint != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = keyHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = onOpenKeyGuide) {
+                Text("¿No tienes clave? Te explico cómo conseguirla")
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 

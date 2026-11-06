@@ -9,16 +9,28 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** ¿Acertó la IA? Lo marca el usuario cuando ya sabe qué pasó en realidad. */
+enum class Verdict(val label: String, val badge: String, val csvLabel: String) {
+    Yes("Sí", "✓ Acertó", "sí"),
+    Partial("En parte", "≈ En parte", "en parte"),
+    No("No", "✗ No acertó", "no")
+}
+
 /**
  * Un diagnóstico guardado: la foto, lo que escribiste en el formulario
  * y lo que respondió la IA. La ruta de la foto sirve como identificador
  * (cada foto tiene un nombre único con su marca de tiempo).
+ *
+ * verdict y actualCause son la retroalimentación del usuario (qué tan bien acertó la IA
+ * y cuál fue la causa real); sirven para armar la tabla de resultados de la tesis.
  */
 data class HistoryEntry(
     val photoPath: String,
     val createdAt: Long,        // milisegundos desde 1970 (cuándo se diagnosticó por primera vez)
     val info: PrintInfo,
-    val result: DiagnosisResult
+    val result: DiagnosisResult,
+    val verdict: Verdict? = null,
+    val actualCause: String = ""
 )
 
 /**
@@ -47,10 +59,23 @@ class HistoryStore(context: Context) {
             photoPath = photoPath,
             createdAt = previous?.createdAt ?: System.currentTimeMillis(),
             info = info,
-            result = result
+            result = result,
+            // La causa real es un dato de la impresión y se conserva siempre. La calificación
+            // solo se conserva si el diagnóstico sigue siendo el mismo (si la IA lo cambió
+            // tras las preguntas de seguimiento, ya hay que calificarlo de nuevo).
+            verdict = previous?.takeIf { it.result.diagnosis == result.diagnosis }?.verdict,
+            actualCause = previous?.actualCause ?: ""
         )
         entries = (listOf(entry) + entries.filter { it.photoPath != photoPath })
             .sortedByDescending { it.createdAt }
+        writeToDisk()
+    }
+
+    /** Guarda la calificación ("¿acertó?") y la causa real de un diagnóstico. */
+    fun updateFeedback(photoPath: String, verdict: Verdict?, actualCause: String) {
+        entries = entries.map {
+            if (it.photoPath == photoPath) it.copy(verdict = verdict, actualCause = actualCause) else it
+        }
         writeToDisk()
     }
 
@@ -114,6 +139,8 @@ private fun HistoryEntry.toJson(): JSONObject = JSONObject().apply {
     put("explanation", result.explanation)
     put("advice", JSONArray(result.advice))
     put("followUpQuestions", JSONArray(result.followUpQuestions))
+    put("verdict", verdict?.name ?: "")
+    put("actualCause", actualCause)
 }
 
 private fun JSONObject.toEntry(): HistoryEntry = HistoryEntry(
@@ -131,7 +158,10 @@ private fun JSONObject.toEntry(): HistoryEntry = HistoryEntry(
         explanation = optString("explanation"),
         advice = optJSONArray("advice").toStringList(),
         followUpQuestions = optJSONArray("followUpQuestions").toStringList()
-    )
+    ),
+    // Los diagnósticos guardados antes de esta versión no traen estos campos: quedan vacíos
+    verdict = optString("verdict").let { saved -> Verdict.entries.firstOrNull { it.name == saved } },
+    actualCause = optString("actualCause")
 )
 
 private fun JSONArray?.toStringList(): List<String> {

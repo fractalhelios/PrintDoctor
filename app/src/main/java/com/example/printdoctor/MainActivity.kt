@@ -30,7 +30,7 @@ import com.example.printdoctor.ui.theme.PrintDoctorTheme
 
 // Las pantallas de la app. El ORDEN importa: define hacia dónde se deslizan las transiciones
 // (ir a una pantalla que está más a la derecha en esta lista = deslizar hacia adelante).
-enum class Screen { Home, Form, Diagnosis, Settings, Credits, History, HistoryDetail }
+enum class Screen { Home, Form, Diagnosis, Settings, ApiKeyGuide, Credits, History, HistoryDetail }
 
 // Etapas de la presentación: mostrándose -> abriéndose el "iris" -> terminada
 private enum class SplashPhase { Showing, Revealing, Done }
@@ -68,6 +68,12 @@ class MainActivity : ComponentActivity() {
                 // un identificador) para que, al borrarlo, la pantalla no se quede en blanco
                 // mientras se desliza hacia afuera.
                 var detailEntry by remember { mutableStateOf<HistoryEntry?>(null) }
+                // A dónde regresa la guía de la clave (se puede abrir desde Configuración
+                // o desde un error de clave en el diagnóstico)
+                var keyGuideReturn by remember { mutableStateOf(Screen.Settings) }
+                // Foto cuyo aviso de "poca calidad" ya se aceptó (para no repetirlo al volver
+                // de la guía de la clave)
+                var acceptedPhotoPath by remember { mutableStateOf<String?>(null) }
 
                 // Cuando la presentación termina, el iris se abre desde el centro
                 LaunchedEffect(splashPhase) {
@@ -205,7 +211,13 @@ class MainActivity : ComponentActivity() {
                                                     history.save(path, info, result)
                                                 },
                                                 onBack = { screen = Screen.Form },
-                                                onNewPhoto = { screen = Screen.Home }
+                                                onNewPhoto = { screen = Screen.Home },
+                                                photoWarningAccepted = acceptedPhotoPath == path,
+                                                onPhotoWarningAccepted = { acceptedPhotoPath = path },
+                                                onOpenKeyGuide = {
+                                                    keyGuideReturn = Screen.Diagnosis
+                                                    screen = Screen.ApiKeyGuide
+                                                }
                                             )
                                         }
                                     }
@@ -213,7 +225,16 @@ class MainActivity : ComponentActivity() {
                                     Screen.Settings -> SettingsScreen(
                                         settings = settings,
                                         onOpenCredits = { screen = Screen.Credits },
+                                        onOpenKeyGuide = {
+                                            keyGuideReturn = Screen.Settings
+                                            screen = Screen.ApiKeyGuide
+                                        },
                                         onBack = { screen = Screen.Home }
+                                    )
+
+                                    Screen.ApiKeyGuide -> ApiKeyGuideScreen(
+                                        settings = settings,
+                                        onBack = { screen = keyGuideReturn }
                                     )
 
                                     Screen.Credits -> CreditsScreen(
@@ -235,6 +256,13 @@ class MainActivity : ComponentActivity() {
                                             HistoryDetailScreen(
                                                 entry = entry,
                                                 onBack = { screen = Screen.History },
+                                                onFeedback = { verdict, cause ->
+                                                    history.updateFeedback(entry.photoPath, verdict, cause)
+                                                    // Refrescamos la copia para que la pantalla muestre lo nuevo
+                                                    detailEntry = history.entries
+                                                        .firstOrNull { it.photoPath == entry.photoPath }
+                                                        ?: entry
+                                                },
                                                 onDelete = {
                                                     history.delete(entry)
                                                     // Si era la foto "activa", la soltamos

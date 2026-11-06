@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -36,13 +37,24 @@ class GeminiProvider(
         info: PrintInfo,
         extraAnswers: String?
     ): DiagnosisResult = withContext(Dispatchers.IO) {
-        require(apiKey.isNotBlank()) {
-            "Falta la clave de Gemini: agrégala en Configuración (o en local.properties)"
+        if (apiKey.isBlank()) {
+            throw DiagnosisException(
+                DiagnosisErrorKind.NoKey,
+                "Todavía no hay una clave de Gemini guardada."
+            )
         }
-        val imageBase64 = jpegBase64(photoPath)
-        val requestBody = buildRequestBody(imageBase64, info, extraAnswers)
-        val responseText = post(requestBody)
-        parseResult(responseText)
+        // Cualquier fallo se traduce a un DiagnosisException con un mensaje claro en español
+        // (ver DiagnosisError.kt), para que la pantalla sepa qué botón ofrecer.
+        try {
+            val imageBase64 = jpegBase64(photoPath)
+            val requestBody = buildRequestBody(imageBase64, info, extraAnswers)
+            val responseText = post(requestBody)
+            parseResult(responseText)
+        } catch (e: CancellationException) {
+            throw e     // si el usuario sale de la pantalla, no es un error
+        } catch (e: Exception) {
+            throw diagnosisErrorFromException(e)
+        }
     }
 
     // ---------- 1) Armar la petición ----------
@@ -129,10 +141,7 @@ class GeminiProvider(
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
 
-            if (code !in 200..299) {
-                val hint = if (code == 429) " (llegaste al límite gratis; espera un rato)" else ""
-                throw IllegalStateException("Gemini respondió $code$hint: ${text.take(300)}")
-            }
+            if (code !in 200..299) throw diagnosisErrorFromHttp(code, text)
             return text
         } finally {
             connection.disconnect()
@@ -156,7 +165,22 @@ class GeminiProvider(
             }
         }
         if (text.isBlank()) {
-            throw IllegalStateException("Gemini no devolvió texto (puede ser un bloqueo de seguridad)")
+            // ¿La IA se negó por seguridad o simplemente no contestó?
+            val blockReason = root.optJSONObject("promptFeedback")?.optString("blockReason").orEmpty()
+            val finishReason = root.optJSONArray("candidates")?.optJSONObject(0)
+                ?.optString("finishReason").orEmpty()
+            val blocked = blockReason.isNotBlank() || finishReason in BlockedFinishReasons
+            if (blocked) {
+                throw DiagnosisException(
+                    DiagnosisErrorKind.Blocked,
+                    "Gemini no quiso analizar esta foto (filtro de seguridad). Prueba con otra foto.",
+                    "blockReason=$blockReason, finishReason=$finishReason"
+                )
+            }
+            throw DiagnosisException(
+                DiagnosisErrorKind.BadResponse,
+                "Gemini no devolvió ningún texto. Reintenta en un momento."
+            )
         }
 
         // Por si el modelo envuelve el JSON en ```json ... ```
@@ -174,6 +198,11 @@ class GeminiProvider(
             advice = json.optJSONArray("advice").toStringList(),
             followUpQuestions = json.optJSONArray("follow_up_questions").toStringList()
         )
+    }
+
+    private companion object {
+        val BlockedFinishReasons =
+            setOf("SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY")
     }
 
     private fun JSONArray?.toStringList(): List<String> {
